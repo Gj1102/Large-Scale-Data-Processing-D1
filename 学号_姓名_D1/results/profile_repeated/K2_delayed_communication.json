@@ -1,0 +1,12 @@
+[
+  {
+    "name": "c10d::allreduce_",
+    "count": 1,
+    "cpu_total_us": 61.0
+  },
+  {
+    "name": "gloo:all_reduce",
+    "count": 1,
+    "cpu_total_us": 765396.5
+  }
+]

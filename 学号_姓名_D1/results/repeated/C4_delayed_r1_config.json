@@ -1,0 +1,27 @@
+{
+  "command": [
+    "D:\\software\\Conda\\envs\\ddp-lab\\python.exe",
+    "D:\\MyAppreciation\\Homework\\\u5927\u89c4\u6a21\u6570\u636e\u5904\u7406\u7cfb\u7edf\\project-01\\D1-DDP\\src\\launch.py",
+    "--data",
+    "D:\\MyAppreciation\\Homework\\\u5927\u89c4\u6a21\u6570\u636e\u5904\u7406\u7cfb\u7edf\\project-01\\D1-DDP\\data",
+    "--output",
+    "D:\\MyAppreciation\\Homework\\\u5927\u89c4\u6a21\u6570\u636e\u5904\u7406\u7cfb\u7edf\\project-01\\D1-DDP\\results\\repeated",
+    "--experiment-id",
+    "C4_delayed_r1",
+    "--batch",
+    "16",
+    "--accum-steps",
+    "4",
+    "--strategy",
+    "delayed",
+    "--warmup",
+    "2",
+    "--steps",
+    "4",
+    "--seed",
+    "42"
+  ],
+  "samples_measured": 512,
+  "warmup_updates": 2,
+  "repeat": 1
+}

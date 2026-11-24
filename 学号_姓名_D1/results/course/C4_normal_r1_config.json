@@ -1,0 +1,27 @@
+{
+  "command": [
+    "D:\\software\\Conda\\envs\\ddp-lab\\python.exe",
+    "D:\\MyAppreciation\\Homework\\\u5927\u89c4\u6a21\u6570\u636e\u5904\u7406\u7cfb\u7edf\\project-01\\D1-DDP\\src\\launch.py",
+    "--data",
+    "D:\\MyAppreciation\\Homework\\\u5927\u89c4\u6a21\u6570\u636e\u5904\u7406\u7cfb\u7edf\\project-01\\D1-DDP\\data",
+    "--output",
+    "D:\\MyAppreciation\\Homework\\\u5927\u89c4\u6a21\u6570\u636e\u5904\u7406\u7cfb\u7edf\\project-01\\D1-DDP\\results\\course",
+    "--experiment-id",
+    "C4_normal_r1",
+    "--batch",
+    "16",
+    "--accum-steps",
+    "4",
+    "--strategy",
+    "normal",
+    "--warmup",
+    "1",
+    "--steps",
+    "2",
+    "--seed",
+    "42"
+  ],
+  "samples_measured": 256,
+  "warmup_updates": 1,
+  "repeat": 1
+}

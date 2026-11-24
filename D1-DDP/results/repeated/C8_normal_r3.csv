@@ -1,0 +1,3 @@
+experiment_id,mode,world_size,micro_batch,accum_steps,effective_batch,sync_strategy,seed,update_step,update_time_ms,throughput,loss
+C8_normal_r3,ddp,2,16,8,256,normal,42,1,4802.2072999992815,53.308819050780734,2.784358501434326
+C8_normal_r3,ddp,2,16,8,256,normal,42,2,4415.567699998064,57.97669006413654,2.769845485687256

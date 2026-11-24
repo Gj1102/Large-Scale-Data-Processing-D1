@@ -1,0 +1,38 @@
+# Dataset
+D1-DDP/data/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Archives
+*.zip
+*.tar.gz
+
+# Video
+*.mp4
+*.avi
+*.mov
+
+# Temporary files
+*.tmp
+~$*
+Thumbs.db
+
+# Report preview
+D1-DDP/report/page*.png
+D1-DDP/report/qa_*.png
+D1-DDP/report/pdf_preview.png
+
+# Sensitive files
+.env
+.env.*
+*.key
+*.pem
