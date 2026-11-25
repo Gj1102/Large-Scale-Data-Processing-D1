@@ -83,3 +83,7 @@ K=1、2、4、8 的数值验证通过：普通同步与延迟同步的梯度、�
 
 根目录 `.gitignore` 已包含当前数据集路径；已被 Git 跟踪的文件不会因新增忽略规则而自动取消跟踪。
 
+
+## 正确性验证记录
+
+在 `ddp-lab` 环境中运行 `python code/src/check_sampler.py`，前三个 Epoch 的每个完整更新批次中，A1 与 A2 的全局样本集合一致，实际输出保存在 `results/sampler_verification.log`。运行 `python code/src/verify.py`，K=1、2、4、8 均通过；实际输出保存在 `results/verification_new.log`。K=1 的梯度与参数误差均为 0，K=2、4、8 的梯度最大误差为 1.1920929e-07、参数最大误差为 1.49011612e-08；各 Rank 参数误差均为 0，单进程参考与 DDP 参数最大误差均为 1.1920929e-07。报告中的两处验证截图仍待插入。
