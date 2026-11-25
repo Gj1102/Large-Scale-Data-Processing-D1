@@ -40,7 +40,7 @@ def train(a, rank=None, world_size=None, device=None, init_method=None):
             if rank == 0: datasets.CIFAR10(a.data, train=True, download=True)
             dist.barrier()
         dataset = datasets.FakeData(size=50000, image_size=(3,32,32), num_classes=10, transform=transform) if a.fake_data else datasets.CIFAR10(a.data, train=True, download=a.download and world == 1, transform=transform)
-        sampler = DistributedSampler(dataset, num_replicas=world, rank=rank, seed=a.seed, drop_last=True) if world > 1 else None
+        sampler = DistributedSampler(dataset, num_replicas=world, rank=rank, seed=a.seed, drop_last=True)
         loader = DataLoader(dataset, batch_size=a.batch, sampler=sampler, shuffle=sampler is None, drop_last=True, num_workers=a.workers)
         epoch = 0; iterator = iter(loader)
         opt = torch.optim.SGD(model.parameters(), lr=a.lr, momentum=0.9)
@@ -48,19 +48,28 @@ def train(a, rank=None, world_size=None, device=None, init_method=None):
         for step in range(a.warmup+a.steps):
             if cuda: torch.cuda.synchronize()
             start = time.perf_counter(); opt.zero_grad(set_to_none=True); loss_sum = torch.zeros((),device=device)
+            micro_ms = forward_ms = backward_ms = 0.0
             for micro in range(a.accum_steps):
                 try: x,y = next(iterator)
                 except StopIteration:
                     epoch += 1
                     if sampler: sampler.set_epoch(epoch)
                     iterator=iter(loader); x,y=next(iterator)
-                x,y=x.to(device),y.to(device)
+                micro_start=time.perf_counter(); x,y=x.to(device),y.to(device)
                 ctx = model.no_sync() if world > 1 and a.strategy == 'delayed' and micro < a.accum_steps-1 else contextlib.nullcontext()
                 with ctx:
-                    loss = torch.nn.functional.cross_entropy(model(x),y)
-                    (loss/a.accum_steps).backward()
+                    if cuda: torch.cuda.synchronize()
+                    t=time.perf_counter(); loss = torch.nn.functional.cross_entropy(model(x),y)
+                    if cuda: torch.cuda.synchronize()
+                    forward_ms += (time.perf_counter()-t)*1000
+                    t=time.perf_counter(); (loss/a.accum_steps).backward()
+                    if cuda: torch.cuda.synchronize()
+                    backward_ms += (time.perf_counter()-t)*1000
                 loss_sum += loss.detach()/a.accum_steps
-            opt.step()
+                micro_ms += (time.perf_counter()-micro_start)*1000
+            t=time.perf_counter(); opt.step()
+            if cuda: torch.cuda.synchronize()
+            optimizer_ms=(time.perf_counter()-t)*1000
             if cuda: torch.cuda.synchronize()
             elapsed = torch.tensor(time.perf_counter()-start, device=device, dtype=torch.float64)
             if world > 1:
@@ -68,7 +77,7 @@ def train(a, rank=None, world_size=None, device=None, init_method=None):
             if not torch.isfinite(loss_sum): raise RuntimeError('non-finite loss')
             if step >= a.warmup and rank == 0:
                 sec=elapsed.item(); effective=world*a.batch*a.accum_steps
-                rows.append(dict(experiment_id=a.experiment_id, mode='ddp' if world>1 else 'single', world_size=world, micro_batch=a.batch, accum_steps=a.accum_steps, effective_batch=effective, sync_strategy=a.strategy, seed=a.seed, update_step=step-a.warmup+1, update_time_ms=sec*1000, throughput=effective/sec, loss=loss_sum.item()))
+                rows.append(dict(experiment_id=a.experiment_id, mode='ddp' if world>1 else 'single', world_size=world, micro_batch=a.batch, accum_steps=a.accum_steps, effective_batch=effective, sync_strategy=a.strategy, seed=a.seed, update_step=step-a.warmup+1, update_time_ms=sec*1000, micro_mean_ms=micro_ms/a.accum_steps, forward_mean_ms=forward_ms/a.accum_steps, backward_mean_ms=backward_ms/a.accum_steps, optimizer_ms=optimizer_ms, timing_rank=0, gradient_sync_backwards=a.accum_steps if a.strategy=='normal' and world>1 else (1 if world>1 else 0), throughput=effective/sec, loss=loss_sum.item()))
                 print(f"update {step-a.warmup+1}: {sec*1000:.2f} ms loss={loss_sum.item():.4f}", flush=True)
         if a.evaluate and rank == 0:
             if a.fake_data: raise ValueError('evaluation requires CIFAR-10')

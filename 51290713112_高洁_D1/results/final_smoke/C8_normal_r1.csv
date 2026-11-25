@@ -1,0 +1,2 @@
+experiment_id,mode,world_size,micro_batch,accum_steps,effective_batch,sync_strategy,seed,update_step,update_time_ms,micro_mean_ms,forward_mean_ms,backward_mean_ms,optimizer_ms,timing_rank,gradient_sync_backwards,throughput,loss
+C8_normal_r1,ddp,2,16,8,256,normal,42,1,4663.2490000047255,578.5449375016469,34.780887501256075,543.6932000011439,24.490300012985244,0,8,54.89734732152209,2.72377347946167

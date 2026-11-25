@@ -1,0 +1,3 @@
+experiment_id,mode,world_size,micro_batch,accum_steps,effective_batch,sync_strategy,seed,update_step,update_time_ms,micro_mean_ms,forward_mean_ms,backward_mean_ms,optimizer_ms,timing_rank,gradient_sync_backwards,throughput,loss
+C4_normal_r1,ddp,2,16,4,128,normal,42,1,2404.382099994109,592.6333750030608,37.15297499729786,555.412574998627,28.535999997984618,0,4,53.23613081311561,2.615983486175537
+C4_normal_r1,ddp,2,16,4,128,normal,42,2,2473.510299998452,608.4522500023013,35.685549995832844,572.6762750018679,33.15649999422021,0,4,51.74831897812599,2.9574811458587646

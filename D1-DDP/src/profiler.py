@@ -17,7 +17,7 @@ def worker(rank, uri, strategy, output, k):
         with torch.profiler.profile(activities=[torch.profiler.ProfilerActivity.CPU]) as prof:
             for i in range(k):
                 with model.no_sync() if strategy=='delayed' and i<k-1 else contextlib.nullcontext():
-                    (torch.nn.functional.cross_entropy(model(x),y)/4).backward()
+                    (torch.nn.functional.cross_entropy(model(x),y)/k).backward()
         if rank==0:
             Path(output).mkdir(parents=True,exist_ok=True)
             prof.export_chrome_trace(str(Path(output)/f'K{k}_{strategy}_trace.json'))

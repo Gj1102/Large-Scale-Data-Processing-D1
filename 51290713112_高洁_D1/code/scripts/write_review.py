@@ -1,0 +1,8 @@
+﻿from pathlib import Path
+import json
+root=Path(__file__).resolve().parents[1]; root=root.parent if root.name=='code' else root; d={r['name']:r for r in json.loads((root/'results/final/aggregate.json').read_text(encoding='utf-8'))}
+lines=['# D1 最终技术核验','', '课程题目及验收 PDF 未找到，以下依据用户提供的题目和指定 Word 模板；不能确认额外验收要求。','', '## 实际完成','', '- 单进程 A1 与双进程 A2：`src/train.py`、`src/launch.py`，全局批 128，`src/check_sampler.py` 验证前三个 epoch 每个完整批次的全局样本集合一致。','- B1/B2 对应 C4 normal/delayed；C 组 K=1/2/4/8，固定微批 16，`no_sync` 覆盖前 K−1 次前向和反向，loss 除 K。','- K=1/2/4/8 数值正确性检查此前实际通过；单进程参考最大参数误差 1.1920929e-7，Rank 间误差 0。','- 本次执行固定更新数实验：每配置 2 次预热、4 次测量、3 轮；固定样本短测保留在 results/final_smoke 和历史 results/repeated。','- `src/profiler.py` 单独采集合成输入的梯度反向通信，不包含每次更新的 Loss 和时间统计 all-reduce；验证通信另列。','- 每步更新总时间、吞吐、Rank 0 阶段耗时和同步反向次数见 results/final/*.csv；汇总与图表在 aggregate 和 figures/final。','', '## 新实验结果','']
+for name in ('A1','A2','C1_normal','C1_delayed','C2_normal','C2_delayed','C4_normal','C4_delayed','C8_normal','C8_delayed'):
+ r=d[name]; lines.append(f"- {name}: 更新均值 {r['mean_update_ms']:.2f} ms，P50/P95 {r['p50_ms']:.2f}/{r['p95_ms']:.2f} ms，吞吐 {r['throughput_mean']:.2f} ± {r['throughput_std_between_repeats']:.2f} 样本/秒。")
+lines += ['', '## 报告与风险','', '- 基于指定模板的副本填写，保留章节及页眉；正文、表格和图使用 final 数据。模板中的个人独立工作与本人验证仍需本人填写，运行截图位置已保留。','- Word COM 返回 0x80070520，且未发现 LibreOffice；无法本机导出或渲染检查新报告，需本人用 Word 检查排版并导出 PDF。','- 20/200/3 长时实验未运行，重复均为同一种子，不能据此推断长期稳定性；各 K 固定更新数时样本数量不同。','- CPU/Gloo 的独立 profiler 事件时间受插桩、桶重建影响，不可视为端到端额外通信时间；计算与通信重叠未可靠量化。GPU/NCCL 未验证。','- 按课程要求插入真实运行截图，填写本人实际工作，并核对老师两份 PDF 的要求；视频和打包按用户要求本次未处理。']
+(root.parent/'FINAL_REVIEW.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')

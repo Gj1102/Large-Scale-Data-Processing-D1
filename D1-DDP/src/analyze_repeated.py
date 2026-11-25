@@ -18,12 +18,25 @@ summary=[]
 for name,runs in sorted(groups.items()):
  times=[t for rows,ts,thr in runs for t in ts]; throughputs=[thr for rows,ts,thr in runs]; losses=[float(r['loss']) for rows,ts,thr in runs for r in rows]
  r={'name':name,'repeats':len(runs),'updates_per_repeat':len(runs[0][1]),'samples_per_repeat':sum(int(row['effective_batch']) for row in runs[0][0]),'mean_update_ms':statistics.mean(times),'std_update_ms':statistics.stdev(times) if len(times)>1 else None,'p50_ms':pct(times,.5),'p95_ms':pct(times,.95),'throughput_mean':statistics.mean(throughputs),'throughput_std_between_repeats':statistics.stdev(throughputs) if len(throughputs)>1 else None,'repeat_throughputs':throughputs,'mean_loss':statistics.mean(losses),'profiler_count':None,'profiler_total_ms':None}
+ for field in ('micro_mean_ms','forward_mean_ms','backward_mean_ms','optimizer_ms','gradient_sync_backwards'):
+  values=[float(row[field]) for rows,ts,thr in runs for row in rows if field in row]
+  r[field]=statistics.mean(values) if values else None
+  if field != 'gradient_sync_backwards':
+   r[field+'_std']=statistics.stdev(values) if len(values)>1 else None
+   r[field+'_p50']=pct(values,.5) if values else None
+   r[field+'_p95']=pct(values,.95) if values else None
  if name.startswith('C'):
   k,strategy=name[1:].split('_'); f=Path(a.profiler)/f'K{k}_{strategy}_communication.json'
   if f.exists():
    ev=next((e for e in json.loads(f.read_text(encoding='utf-8')) if e['name']=='gloo:all_reduce'),None)
    if ev: r['profiler_count']=ev['count']; r['profiler_total_ms']=ev['cpu_total_us']/1000
  summary.append(r)
+by_name={r['name']:r for r in summary}
+for r in summary:
+ if r['name'].startswith('C') and r['name'].endswith('_delayed'):
+  baseline=by_name.get(r['name'].replace('_delayed','_normal'))
+  r['speedup_vs_normal']=r['throughput_mean']/baseline['throughput_mean'] if baseline else None
+ else: r['speedup_vs_normal']=None
 (root/'aggregate.json').write_text(json.dumps(summary,indent=2),encoding='utf-8')
 with (root/'aggregate.csv').open('w',newline='',encoding='utf-8') as f:
  w=csv.DictWriter(f,fieldnames=summary[0].keys()); w.writeheader(); w.writerows(summary)
@@ -40,5 +53,7 @@ fig,ax=plt.subplots(figsize=(7,4))
 for strategy in ('normal','delayed'):
  rows=groups[f'C4_{strategy}'][0][0]; ax.plot([int(r['update_step']) for r in rows],[float(r['loss']) for r in rows],marker='o',label=strategy)
 ax.set(xlabel='Measured update',ylabel='Cross entropy',title='B loss, repeat 1 (performance run)'); ax.legend(); fig.tight_layout(); fig.savefig(out/'loss.png',dpi=160); plt.close(fig)
-fig,axs=plt.subplots(1,2,figsize=(9,4)); labels=['normal','delayed']; rs=[d['C4_'+s] for s in labels]; axs[0].bar(labels,[r['profiler_count'] for r in rs]); axs[0].set(ylabel='Gloo calls / profiled update',title='Call count'); axs[1].bar(labels,[r['profiler_total_ms'] for r in rs]); axs[1].set(ylabel='Cumulative event time (ms)',title='Event time'); fig.suptitle('Independent synthetic CPU profiler, K=4'); fig.tight_layout(); fig.savefig(out/'communication.png',dpi=160); plt.close(fig)
+labels=['normal','delayed']; rs=[d['C4_'+s] for s in labels]
+if all(r['profiler_count'] is not None for r in rs):
+ fig,axs=plt.subplots(1,2,figsize=(9,4)); axs[0].bar(labels,[r['profiler_count'] for r in rs]); axs[0].set(ylabel='Gloo calls / profiled update',title='Call count'); axs[1].bar(labels,[r['profiler_total_ms'] for r in rs]); axs[1].set(ylabel='Cumulative event time (ms)',title='Event time'); fig.suptitle('Independent synthetic CPU profiler, K=4'); fig.tight_layout(); fig.savefig(out/'communication.png',dpi=160); plt.close(fig)
 print(json.dumps(summary,indent=2))

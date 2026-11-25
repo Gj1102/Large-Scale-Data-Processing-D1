@@ -44,3 +44,21 @@ torchrun --standalone --nproc-per-node=2 src/train.py --batch 16 --accum-steps 4
 依赖 `requirements.txt`；报告生成还需 python-docx、PyMuPDF。Windows base Conda 若出现 OpenMP 冲突，请使用可正常导入的 ddp-lab 环境，勿通过不受支持的兼容开关掩盖问题。
 
 ??????? seed=42 ?????????????????????????????????????????Profiler ? synthetic ???????? 1??????????? rank 0 ???A1/A2 ??????????
+
+## 2026 最终实验（CPU/Gloo）
+
+在 D1-DDP 目录使用 `conda activate ddp-lab`，再执行 `$env:PYTHONUTF8='1'; $env:OMP_NUM_THREADS='1'; $env:MKL_NUM_THREADS='1'`。中文路径要求 UTF-8 模式。下列目录应事先创建，避免覆盖历史结果。
+
+```powershell
+New-Item -ItemType Directory -Force results/final,results/final_profiler,figures/final | Out-Null
+python scripts/run_experiments.py --steps 4 --warmup 2 --repeats 3 --output results/final
+foreach ($k in 1,2,4,8) { foreach ($strategy in 'normal','delayed') { python src/profiler.py --k $k --strategy $strategy --output results/final_profiler } }
+python src/analyze_repeated.py --input results/final --profiler results/final_profiler --output figures/final
+```
+
+本次固定更新次数：每轮预热 2、测量 4 更新，3 轮。K 不同因有效批不同而样本数不同。原 512 样本固定样本短测保留在 `results/repeated`；完整 20/200/3 在本机运行时间较长，本次未运行。A1/A2 采用同一 `DistributedSampler` 随机排列，每更新全局样本集合相同；多进程各 rank 分片顺序不同。各阶段耗时为 rank 0：微批不含数据加载，反向包含梯度同步；更新总耗时为各 rank 最大值且含数据加载。阶段耗时不是跨 rank 最大值，不可直接与总耗时相加；GPU 路径为同步计时，会影响性能且未验证。每个更新的梯度同步反向次数记录于 CSV；额外的 Loss 和时间统计 all-reduce 位于计时区间外，独立 profiler 只捕获模型反向。事件累计耗时不能代表端到端通信开销，不能可靠量化计算通信重叠。
+
+复现时请将 `results/final`、`results/final_profiler` 和 `figures/final` 换成新的空目录：脚本按实验 ID 写文件，重用已有目录会覆盖同名文件。A1/A2 采样检查：`python src/check_sampler.py`；数值一致性检查：`python src/verify.py`。B1/B2 分别对应 `C4_normal` 和 `C4_delayed`。历史数据与新采集数据不可直接混合统计，因为历史版本未逐步对齐 A 组样本，也没有阶段计时。
+如需更长的固定更新数实验，可使用新目录运行 `python scripts/run_experiments.py --steps 200 --warmup 20 --repeats 3 --output results/long_run`。这会对每个 K 使用不同总样本数，运行前应确认机器可承受长时间 CPU 负载。
+
+提交目录使用说明：在 `51290713112_高洁_D1` 目录下，以 `python code/scripts/run_experiments.py ...` 运行自动化，数据放在该目录的 `data`（提交包未附数据集）；分析与 profiler 分别使用 `python code/src/analyze_repeated.py ...` 和 `python code/src/profiler.py ...`。上面的命令以开发目录 D1-DDP 为工作目录。
