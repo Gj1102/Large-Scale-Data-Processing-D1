@@ -1,64 +1,76 @@
-# D1 分布式数据并行与同步开销
+﻿# D1 分布式数据并行与同步开销
 
-课程必做比较单进程和双进程 DDP；方向③比较梯度累积普通同步与 no_sync 延迟同步。DDP 每次反向传播按桶 All-Reduce 并平均梯度；每微批 loss 除以 K、每个周期只 zero_grad 和 optimizer.step 各一次。no_sync 必须覆盖前 K−1 次前向和反向。
+本实验使用 PyTorch DistributedDataParallel（DDP），比较单进程与双进程训练，并研究梯度累积和延迟同步对 CPU/Gloo 训练吞吐量的影响。
 
-## 实际环境与结果
+## 实验原理
 
-本次使用 Windows、Python 3.11、PyTorch 2.15.0+cpu、torchvision 0.29.2+cpu、CPU/Gloo、逻辑 CPU 20、内存 15.71 GiB、OMP_NUM_THREADS=1。双进程使用 spawn 和唯一 file:// 存储；没有 GPU 测试。CIFAR-10、GroupNorm ResNet-18、SGD lr=0.01、momentum=0.9、FP32、seed=42。
+DDP 在反向传播时按梯度桶执行 All-Reduce，使各进程使用一致的平均梯度。每个参数更新包含 K 个微批，微批损失除以 K 后累积梯度，再执行一次优化器更新。普通同步在每个微批反向传播时同步梯度；延迟同步通过 `no_sync()` 包围前 K−1 次前向与反向传播，在最后一个微批同步。有效全局批大小为进程数 × 每进程微批大小 × K。
 
-为控制 CPU 运行时间，本次每组预热 2 更新，测量 512 样本，重复 3 次。A1/A2 每轮 4 更新；C 的 K=1/2/4/8 分别为 16/8/4/2 更新，微批 16、双进程；B1/B2 即 C4 normal/delayed。A1/A2 全局批 128，但样本顺序未逐样本对齐；B 的初始化、数据顺序、参数和更新次数一致。不同 K 的有效批和更新次数变化，不能将收敛质量视为相同条件。
+## 项目目录
 
-三轮平均吞吐量：A1 203.3、A2 174.0、B1 55.6、B2 135.9 样本/秒。B1 三轮 55.4/56.7/54.6，B2 为 132.2/134.9/140.5。每轮 B 只有 4 更新，方向一致但不足以支持长期稳定性结论。独立合成输入 profiler、K=4、每进程微批 1、一个更新周期下，普通同步 10 个 Gloo all-reduce 事件，累计 3165.4 ms；延迟同步 1 个事件，累计 738.4 ms。该事件耗时包括 profiler 影响，不能当作端到端额外通信成本；不能用 DDP 减单进程时间推算通信成本。A 的通信事件未单独采集。
+- `src/`：训练、双进程启动、采样与数值检查、通信采样和数据分析。
+- `scripts/`：实验自动化、报告生成和结果核对。
+- `configs/`：实验配置。
+- `results/final/`：本轮原始 CSV、配置、日志及汇总；`results/final_profiler/`：独立通信事件与 trace。
+- `figures/final/`：本轮统计图；`report/`：实验报告。
+- `results/repeated/` 和 `figures/repeated/`：先前固定样本数实验结果。
+- `templates/`：报告原始模板备份。
 
-每步耗时含数据读取、前向、反向和更新；CUDA synchronize 后计时，DDP 用各 rank 时间 MAX；样本吞吐量为总样本/总更新耗时。汇总文件中 update 标准差和百分位数使用合并的更新记录，吞吐量标准差在三轮之间计算。GPU/NCCL、微批独立计算时间和计算通信重叠尚未实测。性能运行的 Loss 并非收敛测试。
+提交目录的源码位于 `code/`；数据、图表和报告位于提交目录顶层。以下命令以开发目录 `D1-DDP` 为工作目录；在提交目录运行时，将 `src/` 和 `scripts/` 分别替换为 `code/src/` 和 `code/scripts/`。
 
-## Windows PowerShell
+## 环境配置
 
-在含数据的项目目录中：
+本次实验在单机 Windows 上使用 Python 3.11.18、PyTorch 2.15.0+cpu、torchvision 0.29.2+cpu、Gloo，逻辑 CPU 20，内存 15.71 GiB。每进程使用一个 OpenMP 线程。已使用 Conda 环境 `ddp-lab`；依赖列于 `requirements.txt`，报告生成还需要 `python-docx`；如环境未安装，可执行 `python -m pip install python-docx`。
 
 ```powershell
 conda activate ddp-lab
+$env:PYTHONUTF8='1'
 $env:OMP_NUM_THREADS='1'
-python src/verify.py
-python scripts/run_experiments.py --samples 512 --warmup 2 --repeats 3 --output ../results/reproduction
-foreach ($k in 1,2,4,8) { foreach ($strategy in 'normal','delayed') { python src/profiler.py --k $k --strategy $strategy --output ../results/reproduction_profiler } }
-python src/analyze_repeated.py --input ../results/reproduction --profiler ../results/reproduction_profiler --output ../figures/reproduction
+$env:MKL_NUM_THREADS='1'
 ```
 
-数据下载：`python src/train.py --download --batch 128 --accum-steps 1 --warmup 0 --steps 1`；数据集不包含在提交包中。所有 K 的 profiler 可将 `--k` 分别设为 1、2、4、8。合成输入只用于验证和 profiler，不作为基准。`--samples` 必须可被 256 整除；每组样本相同，K 不同更新数不同。正式更长测量可增大样本与预热，但本次并未执行默认建议的 20/200/3。
+训练使用 CIFAR-10。数据集未包含在提交目录；联网许可条件下可在工作目录运行 `python src/train.py --download --data ./data --batch 128 --accum-steps 1 --warmup 0 --steps 1` 获取数据。报告生成脚本使用 `templates/51290713112_高洁_D1.docx` 的备份，不修改模板。
 
-## Linux CUDA（未在本机验证）
+## 运行方法
 
-```bash
-python src/train.py --batch 128 --accum-steps 1 --warmup 20 --steps 200
-torchrun --standalone --nproc-per-node=2 src/train.py --batch 64 --accum-steps 1 --warmup 20 --steps 200
-torchrun --standalone --nproc-per-node=2 src/train.py --batch 16 --accum-steps 4 --strategy delayed --warmup 20 --steps 200
-```
-
-## 结果与正确性
-
-`results/repeated/` 包含每组配置、原始 CSV、摘要和日志；aggregate.csv/json 汇总三轮及单独 profiler。`figures/repeated/` 是报告使用的图；历史结果只能作历史记录。验证固定输入得到梯度最大误差 1.19e-7、参数更新误差 1.49e-8、rank 误差 0、单进程参考误差 1.19e-7。训练两步的测试集准确率 11.38% 仅用于验证评估流程。
-
-截图素材：打开 `results/repeated/verification.log`、各组 `.log` 与 `_config.json`、`results/environment.json`、`results/profile_repeated/*_communication.json` 和图表；这些是真实输出，尚非桌面截图。需自行截图并补全姓名、学号、本人核验情况及本人出镜视频。DOCX 和 PDF 的关键结果已核对；PDF 已渲染检查，DOCX 无法在当前环境原生渲染检查。
-
-依赖 `requirements.txt`；报告生成还需 python-docx、PyMuPDF。Windows base Conda 若出现 OpenMP 冲突，请使用可正常导入的 ddp-lab 环境，勿通过不受支持的兼容开关掩盖问题。
-
-??????? seed=42 ?????????????????????????????????????????Profiler ? synthetic ???????? 1??????????? rank 0 ???A1/A2 ??????????
-
-## 2026 最终实验（CPU/Gloo）
-
-在 D1-DDP 目录使用 `conda activate ddp-lab`，再执行 `$env:PYTHONUTF8='1'; $env:OMP_NUM_THREADS='1'; $env:MKL_NUM_THREADS='1'`。中文路径要求 UTF-8 模式。下列目录应事先创建，避免覆盖历史结果。
+为避免覆盖已有数据，以下示例写入新的 `reproduction` 目录。首次运行前创建目录。实验和 profiler 应顺序运行，避免相互干扰。
 
 ```powershell
-New-Item -ItemType Directory -Force results/final,results/final_profiler,figures/final | Out-Null
-python scripts/run_experiments.py --steps 4 --warmup 2 --repeats 3 --output results/final
-foreach ($k in 1,2,4,8) { foreach ($strategy in 'normal','delayed') { python src/profiler.py --k $k --strategy $strategy --output results/final_profiler } }
-python src/analyze_repeated.py --input results/final --profiler results/final_profiler --output figures/final
+New-Item -ItemType Directory -Force results/reproduction,results/reproduction_profiler,figures/reproduction | Out-Null
+python src/check_sampler.py
+python src/verify.py
+python scripts/run_experiments.py --steps 4 --warmup 2 --repeats 3 --output results/reproduction
+foreach ($k in 1,2,4,8) {
+    foreach ($strategy in 'normal','delayed') {
+        python src/profiler.py --k $k --strategy $strategy --output results/reproduction_profiler
+    }
+}
+python src/analyze_repeated.py --input results/reproduction --profiler results/reproduction_profiler --output figures/reproduction
 ```
 
-本次固定更新次数：每轮预热 2、测量 4 更新，3 轮。K 不同因有效批不同而样本数不同。原 512 样本固定样本短测保留在 `results/repeated`；完整 20/200/3 在本机运行时间较长，本次未运行。A1/A2 采用同一 `DistributedSampler` 随机排列，每更新全局样本集合相同；多进程各 rank 分片顺序不同。各阶段耗时为 rank 0：微批不含数据加载，反向包含梯度同步；更新总耗时为各 rank 最大值且含数据加载。阶段耗时不是跨 rank 最大值，不可直接与总耗时相加；GPU 路径为同步计时，会影响性能且未验证。每个更新的梯度同步反向次数记录于 CSV；额外的 Loss 和时间统计 all-reduce 位于计时区间外，独立 profiler 只捕获模型反向。事件累计耗时不能代表端到端通信开销，不能可靠量化计算通信重叠。
+`--samples 512` 且不指定 `--steps` 时，每组按固定样本数测量；`--steps 200 --warmup 20 --repeats 3` 可指定较长的固定更新数实验，输出目录应使用新目录。本轮报告使用 `results/final`，由 `python scripts/make_report.py` 从模板和结果生成；`python scripts/make_pdf.py` 通过已安装的 Word 或 LibreOffice 直接导出 PDF。
 
-复现时请将 `results/final`、`results/final_profiler` 和 `figures/final` 换成新的空目录：脚本按实验 ID 写文件，重用已有目录会覆盖同名文件。A1/A2 采样检查：`python src/check_sampler.py`；数值一致性检查：`python src/verify.py`。B1/B2 分别对应 `C4_normal` 和 `C4_delayed`。历史数据与新采集数据不可直接混合统计，因为历史版本未逐步对齐 A 组样本，也没有阶段计时。
-如需更长的固定更新数实验，可使用新目录运行 `python scripts/run_experiments.py --steps 200 --warmup 20 --repeats 3 --output results/long_run`。这会对每个 K 使用不同总样本数，运行前应确认机器可承受长时间 CPU 负载。
+## 实验设计
 
-提交目录使用说明：在 `51290713112_高洁_D1` 目录下，以 `python code/scripts/run_experiments.py ...` 运行自动化，数据放在该目录的 `data`（提交包未附数据集）；分析与 profiler 分别使用 `python code/src/analyze_repeated.py ...` 和 `python code/src/profiler.py ...`。上面的命令以开发目录 D1-DDP 为工作目录。
+采用 CIFAR-10、GroupNorm ResNet-18、FP32、SGD，学习率 0.01、动量 0.9、随机种子 42。
+
+| 组别 | 进程数 | 每进程微批 | K | 同步策略 | 有效全局批 |
+|---|---:|---:|---:|---|---:|
+| A1 | 1 | 128 | 1 | 无 DDP | 128 |
+| A2 | 2 | 64 | 1 | 普通 | 128 |
+| B1 / C4 normal | 2 | 16 | 4 | 普通 | 128 |
+| B2 / C4 delayed | 2 | 16 | 4 | 延迟 | 128 |
+| C | 2 | 16 | 1、2、4、8 | 普通、延迟 | 32、64、128、256 |
+
+A1/A2 使用同一随机排列，每次更新的全局样本集合一致。B 组除同步策略外保持配置一致。C 组固定每轮测量更新次数，因此 K 改变时样本总数也改变；历史固定样本数实验采用不同统计口径。
+
+## 实验结果
+
+本轮每组预热 2 次、测量 4 次更新，重复 3 轮。平均吞吐量：A1 为 191.72，A2 为 156.22；B1 为 54.08，B2 为 125.80 样本/秒。每更新总耗时使用各 Rank 的最大值，阶段耗时为 Rank 0 测量值；反向阶段包含梯度同步。完整统计、逐步记录和实际命令见 `results/final/`。
+
+K=1、2、4、8 的数值验证通过：普通同步与延迟同步的梯度、更新参数及各 Rank 参数在测试容差内一致；单进程参考的参数最大误差见 `results/final/verification_all_k.log`。独立合成负载 profiler 的 K=4 普通同步和延迟同步分别记录 10 和 1 个 Gloo All-Reduce 事件。
+
+## 实验局限性
+
+每组测量规模较小，三轮使用相同随机种子，结果主要用于比较本机相同负载下的相对性能。训练中每更新还有 Loss 和计时统计通信，独立 profiler 仅覆盖梯度反向阶段；梯度桶重建会影响事件数，事件累计耗时不能直接视为端到端额外通信开销。计算与通信重叠未可靠量化。本实验使用 CPU/Gloo，未测量 GPU/NCCL。
+

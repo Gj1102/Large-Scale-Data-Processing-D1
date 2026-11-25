@@ -1,0 +1,8 @@
+﻿single vs DDP parameter max error=1.1920929e-07
+K=1 PASS gradient max error=0; parameter max error=0; rank max error=0
+single vs DDP parameter max error=1.1920929e-07
+K=2 PASS gradient max error=1.1920929e-07; parameter max error=1.49011612e-08; rank max error=0
+single vs DDP parameter max error=1.1920929e-07
+K=4 PASS gradient max error=1.1920929e-07; parameter max error=1.49011612e-08; rank max error=0
+single vs DDP parameter max error=1.1920929e-07
+K=8 PASS gradient max error=1.1920929e-07; parameter max error=1.49011612e-08; rank max error=0

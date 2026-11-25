@@ -1,23 +1,36 @@
+﻿"""Export the completed DOCX through Word or LibreOffice without redrawing it."""
 from pathlib import Path
-import fitz
-from docx import Document
-root=Path(__file__).resolve().parents[1]; root=root.parent if root.name == 'code' else root; doc=Document(root/'report/D1实验报告.docx'); pdf=fitz.open(); page=None; y=0
+import argparse
+import os
+import shutil
+import subprocess
+import tempfile
 
-def newline(text, size=10):
- global page,y
- text=text.replace('\t',' ')
- while text:
-  part,text=text[:52],text[52:]
-  if page is None or y>795: page=pdf.new_page(width=595,height=842); y=48
-  page.insert_text((45,y),part,fontname='china-s',fontsize=size); y+=16
-for p in doc.paragraphs:
- if p.text.strip():
-  for line in p.text.splitlines(): newline(line,12 if p.style.name.startswith(('Heading','Title')) else 10)
-  y+=4
-for table in doc.tables:
- newline('实验结果汇总',12)
- for row in table.rows:
-  newline('  '.join(c.text for c in row.cells),9)
-for name in ['A_throughput.png','B_time.png','C_throughput.png','communication.png','loss.png']:
- page=pdf.new_page(width=595,height=842); page.insert_text((45,50),name,fontname='helv',fontsize=12); page.insert_image(fitz.Rect(45,80,550,390),filename=str(root/'figures/repeated'/name),keep_proportion=True)
-pdf.save(root/'report/D1实验报告.pdf')
+code = Path(__file__).resolve().parents[1]
+root = code.parent if code.name == 'code' else code
+parser = argparse.ArgumentParser()
+parser.add_argument('--docx', type=Path, default=root / 'report' / 'D1实验报告.docx')
+parser.add_argument('--output', type=Path, default=root / 'report' / 'D1实验报告.pdf')
+args = parser.parse_args()
+source = args.docx.resolve()
+if not source.is_file():
+    raise SystemExit(f'DOCX not found: {source}')
+with tempfile.TemporaryDirectory(prefix='d1-pdf-') as tmp:
+    tmp_path = Path(tmp)
+    rendered = tmp_path / (source.stem + '.pdf')
+    office = shutil.which('soffice') or shutil.which('libreoffice')
+    if office:
+        proc = subprocess.run([office, '--headless', '--convert-to', 'pdf', '--outdir', str(tmp_path), str(source)], capture_output=True, text=True)
+    elif os.name == 'nt':
+        env = os.environ.copy()
+        env['D1_DOCX_SOURCE'] = str(source)
+        env['D1_PDF_OUTPUT'] = str(rendered)
+        command = "$ErrorActionPreference='Stop'; $w=$null; $d=$null; try { $w=New-Object -ComObject Word.Application; $w.Visible=$false; $d=$w.Documents.Open($env:D1_DOCX_SOURCE,$false,$true); $d.ExportAsFixedFormat($env:D1_PDF_OUTPUT,17) } finally { if ($d) {$d.Close(0)}; if ($w) {$w.Quit()} }"
+        proc = subprocess.run(['powershell', '-NoProfile', '-Command', command], env=env, capture_output=True, text=True, errors='replace')
+    else:
+        raise SystemExit('未找到 Word 或 LibreOffice；请使用文字处理软件将 DOCX 导出为 PDF。')
+    if proc.returncode or not rendered.is_file():
+        raise SystemExit(f'Word/LibreOffice 导出失败，请手动导出 DOCX。\n{proc.stderr or proc.stdout}')
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(rendered, args.output)
+    print(f'PDF: {args.output.resolve()}')
