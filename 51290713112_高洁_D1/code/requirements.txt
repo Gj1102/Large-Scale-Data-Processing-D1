@@ -1,5 +1,4 @@
-﻿torch
-torchvision
-matplotlib
-python-docx
-PyMuPDF
+﻿torch==2.15.0+cpu
+torchvision==0.29.2+cpu
+matplotlib==3.11.2
+python-docx==1.2.0

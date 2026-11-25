@@ -1,0 +1,13 @@
+﻿seed: 42
+model: resnet18_groupnorm
+dataset: CIFAR10
+optimizer: SGD
+learning_rate: 0.01
+momentum: 0.9
+precision: fp32
+formal_warmup_updates: 20
+formal_measured_updates: 200
+formal_repeats: 3
+short_warmup_updates: 1
+short_measured_samples_per_group: 256
+short_repeats: 1
