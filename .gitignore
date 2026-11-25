@@ -1,5 +1,5 @@
 # Dataset
-D1-DDP/data/
+51290713112_高洁_D1/data/
 
 # Python cache
 __pycache__/
@@ -27,12 +27,13 @@ env/
 Thumbs.db
 
 # Report preview
-D1-DDP/report/page*.png
-D1-DDP/report/qa_*.png
-D1-DDP/report/pdf_preview.png
+51290713112_高洁_D1/report/page*.png
+51290713112_高洁_D1/report/qa_*.png
+51290713112_高洁_D1/report/pdf_preview.png
 
 # Sensitive files
 .env
 .env.*
 *.key
 *.pem
+

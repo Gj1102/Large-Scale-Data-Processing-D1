@@ -8,15 +8,15 @@ DDP 在反向传播时按梯度桶执行 All-Reduce，使各进程使用一致�
 
 ## 项目目录
 
-- `src/`：训练、双进程启动、采样与数值检查、通信采样和数据分析。
-- `scripts/`：实验自动化、报告生成和结果核对。
-- `configs/`：实验配置。
+- `code/src/`：训练、双进程启动、采样与数值检查、通信采样和数据分析。
+- `code/scripts/`：实验自动化、报告生成和结果核对。
+- `code/configs/`：实验配置。
 - `results/final/`：本轮原始 CSV、配置、日志及汇总；`results/final_profiler/`：独立通信事件与 trace。
 - `figures/final/`：本轮统计图；`report/`：实验报告。
 - `results/repeated/` 和 `figures/repeated/`：先前固定样本数实验结果。
-- `templates/`：报告原始模板备份。
+- `code/templates/`：报告原始模板备份。
 
-源码位于 `code/`，数据、图表和报告位于项目目录顶层。以下命令在 `51290713112_高洁_D1` 目录运行；命令中的 `src/` 和 `scripts/` 分别替换为 `code/src/` 和 `code/scripts/`。
+源码位于 `code/`，数据、图表和报告位于项目目录顶层。以下命令均在 `51290713112_高洁_D1` 目录运行。
 
 ## 环境配置
 
@@ -29,7 +29,7 @@ $env:OMP_NUM_THREADS='1'
 $env:MKL_NUM_THREADS='1'
 ```
 
-训练使用 CIFAR-10。数据集位于项目目录的 `data/`；如需重新获取，可在项目目录运行 `python code/src/train.py --download --data ./data --batch 128 --accum-steps 1 --warmup 0 --steps 1` 获取数据。报告生成脚本使用 `templates/51290713112_高洁_D1.docx` 的备份，不修改模板。
+训练使用 CIFAR-10。数据集位于项目目录的 `data/`；如需重新获取，可在项目目录运行 `python code/src/train.py --download --data ./data --batch 128 --accum-steps 1 --warmup 0 --steps 1` 获取数据。报告生成脚本使用 `code/templates/51290713112_高洁_D1.docx` 的备份，不修改模板。
 
 ## 运行方法
 
@@ -37,18 +37,18 @@ $env:MKL_NUM_THREADS='1'
 
 ```powershell
 New-Item -ItemType Directory -Force results/reproduction,results/reproduction_profiler,figures/reproduction | Out-Null
-python src/check_sampler.py
-python src/verify.py
-python scripts/run_experiments.py --steps 4 --warmup 2 --repeats 3 --output results/reproduction
+python code/src/check_sampler.py
+python code/src/verify.py
+python code/scripts/run_experiments.py --steps 4 --warmup 2 --repeats 3 --output results/reproduction
 foreach ($k in 1,2,4,8) {
     foreach ($strategy in 'normal','delayed') {
-        python src/profiler.py --k $k --strategy $strategy --output results/reproduction_profiler
+        python code/src/profiler.py --k $k --strategy $strategy --output results/reproduction_profiler
     }
 }
-python src/analyze_repeated.py --input results/reproduction --profiler results/reproduction_profiler --output figures/reproduction
+python code/src/analyze_repeated.py --input results/reproduction --profiler results/reproduction_profiler --output figures/reproduction
 ```
 
-`--samples 512` 且不指定 `--steps` 时，每组按固定样本数测量；`--steps 200 --warmup 20 --repeats 3` 可指定较长的固定更新数实验，输出目录应使用新目录。本轮报告使用 `results/final`，由 `python scripts/make_report.py` 从模板和结果生成；`python scripts/make_pdf.py` 通过已安装的 Word 或 LibreOffice 直接导出 PDF。
+`--samples 512` 且不指定 `--steps` 时，每组按固定样本数测量；`--steps 200 --warmup 20 --repeats 3` 可指定较长的固定更新数实验，输出目录应使用新目录。当前课程报告为 `report/51290713112_高洁_D1.docx`，可用 `python code/scripts/check_report.py` 核对其中的实验统计。`python code/scripts/make_report.py` 从模板和 `results/final` 生成另一份基础报告 `report/D1实验报告.docx`，不包含对当前课程报告的后续编辑；`python code/scripts/make_pdf.py` 通过已安装的 Word 或 LibreOffice 导出当前课程报告。
 
 ## 实验设计
 
@@ -74,4 +74,12 @@ K=1、2、4、8 的数值验证通过：普通同步与延迟同步的梯度、�
 
 每组测量规模较小，三轮使用相同随机种子，结果主要用于比较本机相同负载下的相对性能。训练中每更新还有 Loss 和计时统计通信，独立 profiler 仅覆盖梯度反向阶段；梯度桶重建会影响事件数，事件累计耗时不能直接视为端到端额外通信开销。计算与通信重叠未可靠量化。本实验使用 CPU/Gloo，未测量 GPU/NCCL。
 
+
+
+
+## 提交材料
+
+`report/` 保存课程报告，`results/final/`、`results/final_profiler/` 和 `figures/final/` 分别保存本轮测量记录、通信采样与图表。`history/` 是开发阶段的历史备份，`data/` 是本地 CIFAR-10 数据集；是否随作业提交以课程要求为准。数据集约 357 MB、历史备份约 25 MB，整理提交材料时应检查体积。报告中的真实运行截图位置需要使用实际截图填写。
+
+根目录 `.gitignore` 已包含当前数据集路径；已被 Git 跟踪的文件不会因新增忽略规则而自动取消跟踪。
 

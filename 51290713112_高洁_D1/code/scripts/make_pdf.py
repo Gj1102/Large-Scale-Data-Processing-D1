@@ -9,8 +9,8 @@ import tempfile
 code = Path(__file__).resolve().parents[1]
 root = code.parent if code.name == 'code' else code
 parser = argparse.ArgumentParser()
-parser.add_argument('--docx', type=Path, default=root / 'report' / 'D1实验报告.docx')
-parser.add_argument('--output', type=Path, default=root / 'report' / 'D1实验报告.pdf')
+parser.add_argument('--docx', type=Path, default=root / 'report' / '51290713112_高洁_D1.docx')
+parser.add_argument('--output', type=Path, default=root / 'report' / '51290713112_高洁_D1.pdf')
 args = parser.parse_args()
 source = args.docx.resolve()
 if not source.is_file():
@@ -34,3 +34,4 @@ with tempfile.TemporaryDirectory(prefix='d1-pdf-') as tmp:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(rendered, args.output)
     print(f'PDF: {args.output.resolve()}')
+
