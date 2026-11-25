@@ -36,7 +36,7 @@ body = f'''# D1 最终验收报告
 
 ## 本次修改
 
-- `report/51290713112_高洁_D1.docx`：补充计时口径、B/C 组解释与限制；个人经历保留待本人填写。原报告备份为 `report/51290713112_高洁_D1.before_audit.docx`。
+- `report/51290713112_高洁_D1.docx`：补充计时口径、B/C 组解释与限制；个人经历保留待本人填写。原报告备份为 `history/51290713112_高洁_D1.before_audit.docx`。
 - `code/configs/default.yaml`：区分实际 2/4/3 和未执行的计划 20/200/3；配置仅供说明，运行脚本不读取它。
 - `code/requirements.txt`：按 ddp-lab 中 pip freeze 的直接依赖固定版本；CPU 版 PyTorch 的可用安装源取决于环境。
 - `code/README.md`：说明实际配置、计划配置、资源差异和同步计数口径。
