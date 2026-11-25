@@ -7,7 +7,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torchvision.models import resnet18
 
 
-def worker(rank, uri):
+def worker(rank, uri, k):
     torch.set_num_threads(1)
     dist.init_process_group('gloo', init_method=uri, rank=rank, world_size=2)
     try:
@@ -15,14 +15,14 @@ def worker(rank, uri):
         base = resnet18(num_classes=10, norm_layer=lambda c: torch.nn.GroupNorm(32,c))
         initial = {k:v.clone() for k,v in base.state_dict().items()}
         generator = torch.Generator().manual_seed(100 + rank)
-        inputs = [(torch.randn(1,3,32,32,generator=generator), torch.randint(0,10,(1,),generator=generator)) for _ in range(4)]
+        inputs = [(torch.randn(1,3,32,32,generator=generator), torch.randint(0,10,(1,),generator=generator)) for _ in range(k)]
         grads=[]; params=[]
         for strategy in ('normal','delayed'):
             base.load_state_dict(initial); model=DDP(base); opt=torch.optim.SGD(model.parameters(),lr=.01,momentum=.9)
             opt.zero_grad(set_to_none=True)
             for i,(x,y) in enumerate(inputs):
-                with model.no_sync() if strategy == 'delayed' and i < 3 else contextlib.nullcontext():
-                    loss=torch.nn.functional.cross_entropy(model(x),y)/4
+                with model.no_sync() if strategy == 'delayed' and i < k-1 else contextlib.nullcontext():
+                    loss=torch.nn.functional.cross_entropy(model(x),y)/k
                     if not torch.isfinite(loss): raise RuntimeError('nonfinite loss')
                     loss.backward()
             grads.append([p.grad.detach().clone() for p in base.parameters()]); opt.step()
@@ -48,12 +48,13 @@ def worker(rank, uri):
                 ref_error = torch.maximum(ref_error,(reference.detach()-actual).abs().max())
         dist.broadcast(ref_error,0)
         if rank==0: print(f'single vs DDP parameter max error={ref_error.item():.9g}',flush=True)
-        if rank==0: print(f'PASS gradient max error={max(errors):.9g}; parameter max error={max(perrors):.9g}; rank max error=0',flush=True)
+        if rank==0: print(f'K={k} PASS gradient max error={max(errors):.9g}; parameter max error={max(perrors):.9g}; rank max error=0',flush=True)
     finally: dist.destroy_process_group()
 
 
 def main():
-    with tempfile.TemporaryDirectory(prefix='d1-verify-') as directory:
-        mp.spawn(worker,args=((Path(directory)/'store').resolve().as_uri(),),nprocs=2,join=True)
+    for k in (1, 2, 4, 8):
+        with tempfile.TemporaryDirectory(prefix='d1-verify-') as directory:
+            mp.spawn(worker,args=((Path(directory)/'store').resolve().as_uri(), k),nprocs=2,join=True)
 
 if __name__ == '__main__': main()
