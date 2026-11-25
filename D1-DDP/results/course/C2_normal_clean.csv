@@ -1,5 +1,0 @@
-experiment_id,mode,world_size,micro_batch,accum_steps,effective_batch,sync_strategy,seed,update_step,update_time_ms,throughput,loss
-C2_normal_clean,ddp,2,16,2,64,normal,42,1,1129.8818000032043,56.643093109224786,2.3840928077697754
-C2_normal_clean,ddp,2,16,2,64,normal,42,2,1331.261600000289,48.07469846646678,2.739680528640747
-C2_normal_clean,ddp,2,16,2,64,normal,42,3,1156.547499998851,55.337113261723864,2.827044725418091
-C2_normal_clean,ddp,2,16,2,64,normal,42,4,1309.3772000029276,48.8781994980949,2.7089905738830566

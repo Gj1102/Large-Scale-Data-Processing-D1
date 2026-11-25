@@ -16,7 +16,7 @@ DDP 在反向传播时按梯度桶执行 All-Reduce，使各进程使用一致�
 - `results/repeated/` 和 `figures/repeated/`：先前固定样本数实验结果。
 - `templates/`：报告原始模板备份。
 
-提交目录的源码位于 `code/`；数据、图表和报告位于提交目录顶层。以下命令以开发目录 `D1-DDP` 为工作目录；在提交目录运行时，将 `src/` 和 `scripts/` 分别替换为 `code/src/` 和 `code/scripts/`。
+源码位于 `code/`，数据、图表和报告位于项目目录顶层。以下命令在 `51290713112_高洁_D1` 目录运行；命令中的 `src/` 和 `scripts/` 分别替换为 `code/src/` 和 `code/scripts/`。
 
 ## 环境配置
 
@@ -29,7 +29,7 @@ $env:OMP_NUM_THREADS='1'
 $env:MKL_NUM_THREADS='1'
 ```
 
-训练使用 CIFAR-10。数据集未包含在提交目录；联网许可条件下可在工作目录运行 `python src/train.py --download --data ./data --batch 128 --accum-steps 1 --warmup 0 --steps 1` 获取数据。报告生成脚本使用 `templates/51290713112_高洁_D1.docx` 的备份，不修改模板。
+训练使用 CIFAR-10。数据集位于项目目录的 `data/`；如需重新获取，可在项目目录运行 `python code/src/train.py --download --data ./data --batch 128 --accum-steps 1 --warmup 0 --steps 1` 获取数据。报告生成脚本使用 `templates/51290713112_高洁_D1.docx` 的备份，不修改模板。
 
 ## 运行方法
 
@@ -73,4 +73,5 @@ K=1、2、4、8 的数值验证通过：普通同步与延迟同步的梯度、�
 ## 实验局限性
 
 每组测量规模较小，三轮使用相同随机种子，结果主要用于比较本机相同负载下的相对性能。训练中每更新还有 Loss 和计时统计通信，独立 profiler 仅覆盖梯度反向阶段；梯度桶重建会影响事件数，事件累计耗时不能直接视为端到端额外通信开销。计算与通信重叠未可靠量化。本实验使用 CPU/Gloo，未测量 GPU/NCCL。
+
 

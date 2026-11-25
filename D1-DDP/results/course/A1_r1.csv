@@ -1,3 +1,0 @@
-experiment_id,mode,world_size,micro_batch,accum_steps,effective_batch,sync_strategy,seed,update_step,update_time_ms,throughput,loss
-A1_r1,single,1,128,1,128,normal,42,1,611.5897999989102,209.29060622042437,2.8884050846099854
-A1_r1,single,1,128,1,128,normal,42,2,628.0074999995122,203.81922190435532,2.7395143508911133

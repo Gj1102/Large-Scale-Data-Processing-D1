@@ -1,2 +1,0 @@
-experiment_id,mode,world_size,micro_batch,accum_steps,effective_batch,sync_strategy,seed,update_step,update_time_ms,throughput,loss
-win_normal,ddp,2,1,4,8,normal,42,1,2552.692900000693,3.1339453327886906,2.7619190216064453
