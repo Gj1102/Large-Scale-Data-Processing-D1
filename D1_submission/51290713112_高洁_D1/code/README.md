@@ -4,7 +4,20 @@
 
 ## 环境与数据
 
-已记录的实验环境为 Windows、Python 3.11.18、PyTorch 2.15.0+cpu、torchvision 0.29.2+cpu、Gloo。项目使用 `ddp-lab` Conda 环境，每进程一个 OpenMP 线程。依赖版本见 `code/requirements.txt`；PyTorch CPU 版本需从提供对应版本的安装源获取。
+已记录的实验环境为 Windows、Python 3.11.18、PyTorch 2.15.0+cpu、torchvision 0.29.2+cpu、Gloo。单机一个节点，A1 使用 1 个进程，其他组使用 2 个进程，每进程设置 1 个 OpenMP 线程。双进程通过本机临时文件初始化进程组，进程间 Gloo 通信不涉及跨物理节点。本实验不使用 GPU，也不涉及 Java 或 JDK。
+
+当前本机查询：Intel Core i7-13650HX，14 个物理核、20 个逻辑处理器，物理内存约 15.71 GiB；项目所在 D 盘是 GAMMIX S20 NVMe SSD，Windows 11 家庭版 64 位（10.0.26300）。可用内存会随运行时负载变化，2026-11-26 查询值约 2.52 GiB。当前查询的逻辑 CPU 数、内存及软件版本与已有实验环境记录相符；可用内存不是历史实验时的记录。
+
+创建环境并安装依赖（如已有 `ddp-lab`，无需重复创建）：
+
+```powershell
+conda create -n ddp-lab python=3.11.18 pip -y
+conda activate ddp-lab
+python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.15.0+cpu torchvision==0.29.2+cpu
+python -m pip install -r code/requirements.txt
+```
+
+PyTorch CPU 轮子来自官方 CPU 索引；依赖安装需要网络。上述安装步骤未在全新环境中实测。
 
 ```powershell
 conda activate ddp-lab
@@ -14,7 +27,7 @@ $env:MKL_NUM_THREADS='1'
 python -c "import torch, torchvision; print(torch.__version__, torchvision.__version__, torch.distributed.is_gloo_available())"
 ```
 
-训练使用 CIFAR-10，默认读取项目目录下的 `data/`。若尚未下载，可运行：
+正式提交包不包含 CIFAR-10。训练默认读取项目目录下的 `data/`，若尚未下载，可运行：
 
 ```powershell
 python -c "from torchvision.datasets import CIFAR10; CIFAR10('./data', train=True, download=True)"
@@ -23,6 +36,8 @@ python -c "from torchvision.datasets import CIFAR10; CIFAR10('./data', train=Tru
 ## 实验参数
 
 模型为 GroupNorm ResNet-18，FP32、SGD、学习率 0.01、动量 0.9、随机种子 42。有效全局批大小为进程数 × 每进程微批大小 × K。
+
+代码直接调用 torchvision 提供的 CIFAR-10 和 ResNet-18，以及 PyTorch 的 DDP、DistributedSampler 和 profiler；项目对 ResNet-18 的归一化层使用 GroupNorm，并实现了本实验的采样、同步、计时和对比流程。原始报告参考资料列出了 PyTorch 文档和 CIFAR-10 论文；现有记录不足以确认还曾直接复制哪些公开示例或课程课件，提交前应由本人核实补充。
 
 | 配置 | 进程数 | 每进程微批 | K | 同步方式 | 有效全局批 |
 |---|---:|---:|---:|---|---:|

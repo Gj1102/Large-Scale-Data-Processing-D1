@@ -1,0 +1,2 @@
+experiment_id,mode,world_size,micro_batch,accum_steps,effective_batch,sync_strategy,seed,update_step,update_time_ms,micro_mean_ms,forward_mean_ms,backward_mean_ms,optimizer_ms,timing_rank,gradient_sync_backwards,throughput,loss
+demo,ddp,2,4,2,16,delayed,42,1,1119.0157999808434,495.45540001417976,79.30649998888839,416.0618999885628,26.24390000710264,0,1,14.298278898540937,2.733065605163574
