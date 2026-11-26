@@ -13,3 +13,5 @@ for row in summary:
  assert math.isclose(row['mean_update_ms'],statistics.mean(times),rel_tol=1e-12)
  assert math.isclose(row['throughput_mean'],statistics.mean(runs),rel_tol=1e-12)
 print('PASS: 30 CSV files and 10 summary rows match')
+import subprocess,sys
+subprocess.run([sys.executable,str(root/'code/scripts/compare_runs.py')],cwd=root,check=True)

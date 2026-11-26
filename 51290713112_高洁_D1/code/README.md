@@ -52,6 +52,18 @@ python code/src/analyze_repeated.py --input results/reproduction --profiler resu
 
 ## 实验设计
 
+两批记录是相同的 10 种配置，不是 20 种配置。原始实验位于 `results/final/` 和 `results/final_profiler/`；本人复现位于 `results/manual_20261125_223126/` 和 `results/manual_20261125_223126_profiler/`，其真实终端文本为 `results/manual_20261125_223126/terminal_user.txt`。两批分别有 30 次训练和 8 次独立通信采样。
+
+不重新训练即可核对两批 CSV、配置、日志、汇总和通信 trace，并生成对比：
+
+```powershell
+python code/scripts/compare_runs.py
+python code/scripts/check_report.py
+python code/scripts/final_audit.py
+```
+
+对比输出为 `results/comparison/` 和 `figures/comparison/`；脚本不会修改原始批次数据。吞吐误差棒是三轮标准差，更新耗时误差棒为各测量更新标准差；阶段图的前向与反向微批均值按 K 换算，反向含同步，且阶段计时取 Rank 0。
+
 采用 CIFAR-10、GroupNorm ResNet-18、FP32、SGD，学习率 0.01、动量 0.9、随机种子 42。
 
 | 组别 | 进程数 | 每进程微批 | K | 同步策略 | 有效全局批 |

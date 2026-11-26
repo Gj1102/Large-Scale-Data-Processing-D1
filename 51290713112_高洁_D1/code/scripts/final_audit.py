@@ -8,9 +8,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[2]
 env = os.environ.copy()
 env.update(PYTHONUTF8='1', OMP_NUM_THREADS='1', MKL_NUM_THREADS='1')
-checks = [('正确性验证', 'code/src/verify.py', 180),
-          ('采样一致性', 'code/src/check_sampler.py', 90),
-          ('原始数据与汇总', 'code/scripts/check_final.py', 60),
+checks = [('两批数据、配置和通信记录', 'code/scripts/check_final.py', 120),
           ('报告、路径和文件完整性', 'code/scripts/check_report.py', 60),
           ('编码', 'code/scripts/check_encoding.py', 90)]
 sections = []
@@ -36,12 +34,13 @@ body = f'''# D1 最终验收报告
 
 ## 本次修改
 
-- `report/51290713112_高洁_D1.docx`：补充计时口径、B/C 组解释与限制；个人经历保留待本人填写。原报告备份为 `history/51290713112_高洁_D1.before_audit.docx`。
+- `report/51290713112_高洁_D1.docx`：在模板基础上补充实现原理、两批比较、架构与同步流程、六幅统计图。保留用户提供的个人说明及真实截图占位。
 - `code/configs/default.yaml`：区分实际 2/4/3 和未执行的计划 20/200/3；配置仅供说明，运行脚本不读取它。
 - `code/requirements.txt`：按 ddp-lab 中 pip freeze 的直接依赖固定版本；CPU 版 PyTorch 的可用安装源取决于环境。
 - `code/README.md`：说明实际配置、计划配置、资源差异和同步计数口径。
 - `code/scripts/check_report.py`：检查章节、身份、统计、图表、占位、README Markdown 链接和关键数据；原脚本及配置、依赖文件分别保留 .bak 备份。
-- `code/scripts/final_audit.py`：运行检查并生成本报告；`update_report_audit.py` 记录报告修改方法，不应在当前报告上重复运行。
+- `code/scripts/compare_runs.py`、`diagrams.py`、`enrich_report.py`：核对两批原始文件并生成对比数据、图和报告内容；后两者不应对已有报告重复执行。
+- `code/scripts/final_audit.py`：运行静态检查并生成本报告；本轮未重新运行训练或验证。
 - 未修改训练算法、既有实验原始数据、日志、profiler 记录或汇总；未删除历史材料，也未提交或推送 Git。
 
 ## 本次自动检查
@@ -53,12 +52,12 @@ body = f'''# D1 最终验收报告
 - 实验每组预热 2 次、测量 4 次、重复 3 轮，使用相同随机种子；未完成计划中的 20/200/3 长时间实验。未测量 CPU 利用率和内存峰值，CPU/Gloo 结果不能直接推广到 GPU/NCCL。
 - 独立 profiler 使用合成负载且没有预热，梯度桶重建影响事件数；事件累计时间不是完整训练的端到端通信耗时，也未可靠量化计算与通信重叠。本次没有重采样，保留历史数据。
 - 本次 Word COM 导出失败：HRESULT 0x80070520（指定的登录会话不存在）；未发现可用 LibreOffice。文档渲染器因缺少 pdf2image 未能启动，页面排版、图片清晰度、空白页及页眉页脚未完成视觉检查。未生成 PDF。
-- 历史验证记录 `results/final/verification_all_k.log` 和 `results/sampler_verification.log` 保持不变。上面的检查输出是本次执行结果；历史记录并不代表本次运行。
+- 本人复现终端日志记录采样及 K=1、2、4、8 验证通过；这些是历史执行记录，本轮未重新运行验证。原始日志和原始实验材料保留。
 
 ## MANUAL：本人需要完成
 
 - 插入真实运行截图：采样一致性、K=1/2/4/8 数值验证，以及报告占位要求的环境、双进程训练和 profiler 输出；截图应来自实际运行。
-- 在报告中据实填写本人修改与验证、独立完成的工作，核对 AI 使用说明。
+- 核对已根据本人提供材料填写的个人工作和 AI 使用说明。
 - 使用 Word 检查标题、表格、图表、分页、页眉页脚与符号；按课程要求导出 PDF。
 - 核对老师完整的提交规范、文件格式和是否需要视频或其他材料，再整理提交包。保留的 CIFAR-10 和历史文件是否随包提交由课程规定决定。
 

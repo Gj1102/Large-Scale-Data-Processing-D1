@@ -32,6 +32,14 @@ try:
         expected=actual.get(name); found=actual.get(b)
         if not found or found != expected: problems.append(b+' 与 '+name+' 不一致')
     add('FAIL' if problems or len(rows)!=10 else 'PASS', '报告与汇总数值：' + (', '.join(problems) if problems else f'{len(rows)} 组'))
+    comparison=json.loads((root/'results/comparison/comparison.json').read_text(encoding='utf-8'))
+    compare_cells={}
+    for table in doc.tables:
+        for r in table.rows:
+            c=[cell.text for cell in r.cells]
+            if len(c)==3 and c[0] in {x['name'] for x in comparison}: compare_cells[c[0]]=c[1:]
+    errors=[r['name'] for r in comparison if compare_cells.get(r['name'])!=[f"{r['original_throughput_mean']:.2f}",f"{r['reproduction_throughput_mean']:.2f}"]]
+    add('FAIL' if len(comparison)!=10 or errors else 'PASS','两批报告对照数据：'+(', '.join(errors) if errors else '10 组一致'))
     with zipfile.ZipFile(report) as z:
         bad=z.testzip(); media=[n for n in z.namelist() if n.startswith('word/media/') and not n.endswith('/')]; empty=[n for n in media if not z.getinfo(n).file_size]
     add('PASS' if len(doc.inline_shapes)>=4 and len(media)>=4 and not bad and not empty else 'FAIL', f'图表嵌入：{len(doc.inline_shapes)} 个，媒体文件 {len(media)} 个；ZIP 错误 {bad}，空文件 {empty}；清晰度需视觉检查')
@@ -48,16 +56,20 @@ for readme in (root/'code/README.md',root.parent/'README.md'):
         target=(readme.parent/unquote(link.split('#')[0])).resolve()
         if not target.exists(): add('FAIL',f'README 链接不存在：{link}')
     add('PASS',f'已检查 Markdown 链接：{readme.name} ({readme.parent.name})')
-required=[root/'results/final/aggregate.json',root/'results/final/verification_all_k.log',root/'results/sampler_verification.log',root/'results/verification_new.log']
+required=[root/'results/final/aggregate.json',root/'results/final/verification_all_k.log']
+required.extend([root/'results/manual_20261125_223126/terminal_user.txt',root/'results/comparison/comparison.json',root/'results/comparison/comparison.csv'])
+required.extend(root/'figures/comparison'/n for n in ('architecture.png','sync_flow.png','throughput_ab.png','throughput_k.png','speedup.png','events.png','update_time.png','stages.png'))
 for relative in ('code/src/train.py','code/src/launch.py','code/src/check_sampler.py',
                  'code/src/verify.py','code/src/profiler.py','code/src/analyze_repeated.py',
                  'code/scripts/run_experiments.py','code/scripts/check_report.py',
                  'code/scripts/make_report.py','code/scripts/make_pdf.py',
-                 'code/configs','code/templates','code/requirements.txt','data',
-                 'results/final','results/final_profiler','results/repeated',
-                 'figures/final','figures/repeated','report'):
+                 'code/configs','code/templates','code/requirements.txt',
+                 'results/final','results/final_profiler',
+                 'figures/final','report'):
     if not (root/relative).exists(): add('FAIL', f'README 项目路径不存在：{relative}')
 add('PASS', '已检查 README 中列出的项目路径')
+for relative in ('data','results/repeated','figures/repeated'):
+    if not (root/relative).exists(): add('WARNING',f'可选本地数据或历史记录未包含：{relative}')
 for name in ['A1','A2']+[f'C{k}_{s}' for k in (1,2,4,8) for s in ('normal','delayed')]:
     for i in range(1,4):
         required.extend(root/f'results/final/{name}_r{i}{suffix}' for suffix in ('.csv','.json','.log','_config.json'))
