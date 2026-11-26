@@ -37,7 +37,7 @@ python -c "from torchvision.datasets import CIFAR10; CIFAR10('./data', train=Tru
 
 模型为 GroupNorm ResNet-18，FP32、SGD、学习率 0.01、动量 0.9、随机种子 42。有效全局批大小为进程数 × 每进程微批大小 × K。
 
-代码直接调用 torchvision 提供的 CIFAR-10 和 ResNet-18，以及 PyTorch 的 DDP、DistributedSampler 和 profiler；项目对 ResNet-18 的归一化层使用 GroupNorm，并实现了本实验的采样、同步、计时和对比流程。原始报告参考资料列出了 PyTorch 文档和 CIFAR-10 论文；现有记录不足以确认还曾直接复制哪些公开示例或课程课件，提交前应由本人核实补充。
+本实验调用 torchvision 提供的 CIFAR-10 和 ResNet-18，以及 PyTorch 的 DDP、DistributedSampler 和 profiler。模型中的 BatchNorm 替换为 GroupNorm，训练脚本实现数据采样、梯度同步和计时，分析脚本汇总两批实验结果。相关文献列于实验报告的参考资料中。
 
 | 配置 | 进程数 | 每进程微批 | K | 同步方式 | 有效全局批 |
 |---|---:|---:|---:|---|---:|

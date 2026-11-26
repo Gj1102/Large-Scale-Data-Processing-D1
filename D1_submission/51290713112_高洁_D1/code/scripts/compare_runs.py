@@ -98,4 +98,4 @@ for key,label,color in [('forward_mean_ms','Forward × K','#4e79a7'),('backward_
     vals=[summaries[b][f'C4_{s}'][key]*(4 if key!='optimizer_ms' else 1) for b in batches for s in ('normal','delayed')]; ax.bar(pos,vals,bottom=bottom,label=label,color=color); bottom+=np.array(vals)
 ax.set_xticks(pos,labels,rotation=15); ax.set(ylabel='Rank 0 stage time per update (ms)',title='K=4 stage time; not max-rank total'); ax.legend(fontsize=8); save(fig,'stages.png')
 print('PASS: 2 batches, 60 runs, 16 profiler captures, summaries, configurations and trace event counts')
-print('WARNING: timings are short and same-seed; stage timing is Rank 0 and backward includes synchronization')
+print('Measurement note: short runs use the same seed; stage timing is Rank 0 and backward includes synchronization')

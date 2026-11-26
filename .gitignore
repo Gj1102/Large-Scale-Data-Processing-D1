@@ -2,6 +2,7 @@
 51290713112_高洁_D1/data/
 
 # Python cache
+.audit_pdf_tools/
 __pycache__/
 *.pyc
 *.pyo
